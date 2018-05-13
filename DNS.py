@@ -48,7 +48,7 @@ class Query:
            byte_category
            length
        }
-       '''
+    '''
     def __init__(self,byte_array,offset = 0):
         byte_array = byte_array[offset:]
         list = []
@@ -76,18 +76,19 @@ class Query:
 
 
 class Answer:
-       '''
-       structure
-       {
-           byte_domain
-           byte_type
-           byte_category
-           byte_ttl
-           byte_data_length
-           byte_CnameOrIP: data
-           length
-       }
-       '''
+    '''
+    structure
+    {
+       byte_domain
+       byte_type
+       byte_category
+       byte_ttl
+       byte_data_length
+       byte_CnameOrIP: data
+       length
+    }
+    '''
+
     def __init__(self,byte_array,offset = 0):
         byte_array = byte_array[offset:]
 
@@ -107,6 +108,7 @@ class Answer:
 
     def to_bytes_array(self):
         res = []
+
         res.extend(self.byte_domain)
         res.extend(self.byte_type)
         res.extend(self.byte_category)
