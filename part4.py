@@ -7,7 +7,8 @@ def UDPDNSProxy():
     # AD = "18.222.87.126" -> '\x12\xde\x57\x7e'
     # WH =  18.188.73.52   -> '\x12\xbc\x49\x34'
 
-    MyIP = [b'\x12',b'\xbc',b'\x49',b'\x34']
+    # MyIP = [b'\x12',b'\xbc',b'\x49',b'\x34']
+    MyIP = b'\x12\xde\x57\x7e'
     udpsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     print 'Socket created'
 
