@@ -1,11 +1,32 @@
+import re
+
+#    +---------------------+
+#    |        Header       |
+#    +---------------------+
+#    |       Question      | the question for the name server
+#    +---------------------+
+#    |        Answer       | RRs answering the question
+#    +---------------------+
+#    |      Authority      | RRs pointing toward an authority
+#    +---------------------+
+#    |      Additional     | RRs holding additional information
+#    +---------------------+def QueryDNS(domain)
+# :
+
+def convert_two_bytes_to_integer(input):
+    res = ord(input[0])
+    res = res * 256 + ord(input[1])
+    return res
+
+
 class Header:
-    def __init__(self,bytes):
-        self.byte_ID = [bytes[0],bytes[1]]
-        self.byte_flags = [bytes[2],bytes[3]]
-        self.byte_queryNum = [bytes[4],bytes[5]]
-        self.byte_answerNum = [bytes[6],bytes[7]]
-        self.byte_authoNum = [bytes[8],bytes[9]]
-        self.byte_additionNum = [bytes[10],bytes[11]]
+    def __init__(self,byte_array):
+        self.byte_ID = [byte_array[0],byte_array[1]]
+        self.byte_flags = [byte_array[2],byte_array[3]]
+        self.byte_queryNum = [byte_array[4],byte_array[5]]
+        self.byte_answerNum = [byte_array[6],byte_array[7]]
+        self.byte_authoNum = [byte_array[8],byte_array[9]]
+        self.byte_additionNum = [byte_array[10],byte_array[11]]
 
     def to_bytes_array(self):
         res = []
@@ -19,14 +40,31 @@ class Header:
         return res
 
 class Query:
-    def __init__(self,bytes,n):
+    '''
+       structure
+       {
+           byte_domain
+           byte_type
+           byte_category
+           length
+       }
+       '''
+    def __init__(self,byte_array,offset = 0):
+        byte_array = byte_array[offset:]
         list = []
-        for i in range(n+1):
-            list.append(bytes[i])
+        n = 0
+
+        while(ord(byte_array[n]) != 0):
+            list.append(byte_array[n])
+            n += 1
+
+        list.append(byte_array[n])
 
         self.byte_domain = list
-        self.byte_type = [bytes[n+1],bytes[n+2]]   #type A should be 1
-        self.byte_category = [bytes[n+3],bytes[n+4]]
+        self.byte_type = [byte_array[n+1],byte_array[n+2]]   #type A should be 1
+        self.byte_category = [byte_array[n+3],byte_array[n+4]]
+
+        self.length = n+5
 
     def to_bytes_array(self):
         res = []
@@ -36,14 +74,36 @@ class Query:
 
         return res
 
+
 class Answer:
-    def __init__(self):
-        self.byte_domain = []
-        self.byte_type = []
-        self.byte_category = []
-        self.byte_ttl = []
-        self.byte_length = []
-        self.byte_Cname = []
+       '''
+       structure
+       {
+           byte_domain
+           byte_type
+           byte_category
+           byte_ttl
+           byte_data_length
+           byte_CnameOrIP: data
+           length
+       }
+       '''
+    def __init__(self,byte_array,offset = 0):
+        byte_array = byte_array[offset:]
+
+        self.byte_domain = [byte_array[0],byte_array[1]]  #offset of the domain
+        self.byte_type = [byte_array[2],byte_array[3]]
+        self.byte_category = [byte_array[4],byte_array[5]]
+        self.byte_ttl = [byte_array[6],byte_array[7],byte_array[8],byte_array[9]]
+        self.byte_data_length = [byte_array[10],byte_array[11]]
+
+        data_length = convert_two_bytes_to_integer(self.byte_data_length)
+        self.byte_CnameOrIP = []
+        for i in range(data_length):
+            index = i + 12
+            self.byte_CnameOrIP.append(byte_array[index])
+
+        self.length = 12 + data_length
 
     def to_bytes_array(self):
         res = []
@@ -51,52 +111,73 @@ class Answer:
         res.extend(self.byte_type)
         res.extend(self.byte_category)
         res.extend(self.byte_ttl)
-        res.extend(self.byte_length)
-        res.extend(self.byte_Cname)
+        res.extend(self.byte_data_length)
+        res.extend(self.byte_CnameOrIP)
 
         return res
-
 
 
 class DNS:
-    def __init__(self,bytes):
+    '''
+    structure
+    {
+        header
+        queryNum
+        answerNum
+        queries
+        answers
+        rest
+    }
+    '''
+    def __init__(self,byte_array):
         self.header = Header(bytes)
 
-        self.queryNum = self.__convert_to_integer(self.header.byte_queryNum)
-        self.answerNum = self.__convert_to_integer(self.header.byte_answerNum)
-        self.authoNum = self.__convert_to_integer(self.header.byte_authoNum)
-        self.additionNum = self.__convert_to_integer(self.header.byte_additionNum)
+        self.queryNum = convert_two_bytes_to_integer(self.header.byte_queryNum)
+        self.answerNum = convert_two_bytes_to_integer(self.header.byte_answerNum)
+        # self.authoNum = convert_two_bytes_to_integer(self.header.byte_authoNum)
+        # self.additionNum = convert_two_bytes_to_integer(self.header.byte_additionNum)
 
-        bytes = bytes[12:]
-
-        offset = self.__construct_queries(bytes)
-        bytes = bytes[offset:]
-
-        offset = self.__construct_answers(bytes)
-        bytes = bytes[offset:]
-
-        self.rest = bytes
-
-
-    def __construct_queries(self,bytes):
-        n = self.queryNum
+        byte_array = byte_array[12:]
 
         self.queries = []
-        num_bytes = 0
-        return num_bytes
-
-    def __construct_answers(self,bytes):
         self.answers = []
-        num_bytes = 0
-        return num_bytes
 
+        offset = self.__construct_queries(byte_array)
+        byte_array = byte_array[offset:]
 
-    def __convert_to_integer(self,input):
-        res = ord(input[0])
-        res = res * 256 + ord(input[1])
-        return res
+        offset = self.__construct_answers(byte_array)
+        byte_array = byte_array[offset:]
+
+        self.rest = byte_array
+
+    def __construct_queries(self,byte_array):
+        n = self.queryNum
+        offset = 0
+
+        for i in range(n):
+            query = Query(byte_array,offset)
+            self.queries.append(query)
+            offset += query.length
+
+        return offset
+
+    def __construct_answers(self,byte_array):
+        n = self.answerNum
+        offset = 0
+
+        for i in range(n):
+            answer = Answer(byte_array, offset)
+            self.answers.append(answer)
+            offset += answer.length
+
+        return offset
 
     def to_bytes_array(self):
+        '''
+        convert the DNS object to a byte array,
+        which can be directly sent by socket
+        :return:
+        '''
         res = []
         res.extend(self.header.to_bytes_array())
         for query in self.queries:
@@ -105,4 +186,52 @@ class DNS:
             res.extend(answer.to_bytes_array())
         res.extend(self.rest)
         return res
+
+    def is_error(self):
+        '''
+        see if there is an typo in the url
+        :return:
+        '''
+        flags = convert_two_bytes_to_integer(self.header.byte_flags)
+        rcode = flags & 15
+        if rcode == 0:
+            return False
+
+        return True
+
+    def fake_an_answer(self, MyIP):
+        '''
+
+        :param MyIP: 192.168.1.10
+        :return:
+        '''
+        temp_ip = re.split(r'.', MyIP)
+        fake_ip = []
+        for string in temp_ip:
+            fake_ip.append(int(string))
+
+        print fake_ip
+
+        # change header, set rcode to 0
+        [flag0,flag1] = self.header.byte_flags
+        flag1 = ord(flag1) & 240  # 240 = 11110000
+        flag1 = bytes(flag1)
+        self.header.byte_flags = [flag0,flag1]
+
+        # change answer
+        fake_answers = []
+        for origin_answer in self.answers:
+            answer_type = bytearray([0,1])  # represent ip, not Cname
+            data_length = bytearray([4])    # for ip, the length is 4
+            ip_address = bytearray([fake_ip[0],fake_ip[1],fake_ip[2],fake_ip[3]]) # fake ip address
+
+            origin_answer.byte_type = answer_type
+            origin_answer.byte_data_length = data_length
+            origin_answer.byte_CnameOrIP = ip_address
+
+            fake_answers.append(origin_answer)
+
+        self.answers = fake_answers
+
+        return self.to_bytes_array()
 
