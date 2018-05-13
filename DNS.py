@@ -214,10 +214,11 @@ class DNS:
 
         # change header, set rcode to 0
         self.header.byte_flags[1] = b'\x00'
-
+        #set answer number to be 1
+        self.header.byte_answerNum = [b'\x00',b'\x01']
         # change answer
-        fake_answers = []
 
+        fake_answers = []
         domain = b'\xc0\x0c'
         answer_type = b'\x00\x01'  # type A, represent ip, not Cname
         category = b'\x00\x01'  #class IN
