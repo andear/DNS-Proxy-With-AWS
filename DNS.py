@@ -1,5 +1,3 @@
-import re
-
 #    +---------------------+
 #    |        Header       |
 #    +---------------------+
@@ -132,7 +130,7 @@ class DNS:
     }
     '''
     def __init__(self,byte_array):
-        self.header = Header(bytes)
+        self.header = Header(byte_array)
 
         self.queryNum = convert_two_bytes_to_integer(self.header.byte_queryNum)
         self.answerNum = convert_two_bytes_to_integer(self.header.byte_answerNum)
@@ -186,16 +184,22 @@ class DNS:
             res.extend(query.to_bytes_array())
         for answer in self.answers:
             res.extend(answer.to_bytes_array())
-        res.extend(self.rest)
-        return res
+        # type(res) = list
+        # convert list to sentable bytearray
+        # [b'01',b'02'] --> b'\x01\x02'
+        sentable = b''
+        for i in res:
+            sentable += i
+        sentable += self.rest
+        return sentable
 
     def is_error(self):
         '''
         see if there is an typo in the url
         :return:
         '''
-        flags = convert_two_bytes_to_integer(self.header.byte_flags)
-        rcode = flags & 15
+        flag = self.header.byte_flags[1]
+        rcode = ord(flag) & 15
         if rcode == 0:
             return False
 
@@ -204,28 +208,25 @@ class DNS:
     def fake_an_answer(self, MyIP):
         '''
 
-        :param MyIP: 192.168.1.10
+        :param MyIP: 18.222.87.126  --> 0x12,0xde,0x57,0x7e
         :return:
         '''
-        temp_ip = re.split(r'.', MyIP)
-        fake_ip = []
-        for string in temp_ip:
-            fake_ip.append(int(string))
-
-        print fake_ip
+        # temp_ip = MyIP.split('.')
+        # fake_ip = []
+        # for string in temp_ip:
+        #     fake_ip.append(hex(int(string)))
 
         # change header, set rcode to 0
-        [flag0,flag1] = self.header.byte_flags
-        flag1 = ord(flag1) & 240  # 240 = 11110000
-        flag1 = bytes(flag1)
-        self.header.byte_flags = [flag0,flag1]
+        self.header.byte_flags[1] = b'\x00'
 
         # change answer
         fake_answers = []
         for origin_answer in self.answers:
-            answer_type = bytearray([0,1])  # represent ip, not Cname
-            data_length = bytearray([4])    # for ip, the length is 4
-            ip_address = bytearray([fake_ip[0],fake_ip[1],fake_ip[2],fake_ip[3]]) # fake ip address
+            answer_type = b'\x00\x01'  # type A, represent ip, not Cname
+            data_length = b'\x04'      # for ip, the length is 4
+
+            ip_address = MyIP
+            # ip_address = b'' + fake_ip[0] + fake_ip[1] + fake_ip[2] + fake_ip[3] # fake ip address
 
             origin_answer.byte_type = answer_type
             origin_answer.byte_data_length = data_length
