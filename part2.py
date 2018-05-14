@@ -14,15 +14,12 @@ def UDPDNSProxy():
 
     while True:
         data, address = udpsocket.recvfrom(1024)
-        print data.encode("hex"), address
+        # print data.encode("hex"), address
 
         response = getResponse(data)
-        print "get response"
+        print "Get response"
 
-        if response:
-            udpsocket.sendto(response, address)
-        else:
-            print "Not a DNS query."
+        udpsocket.sendto(response, address)
 
 
 def getResponse(query):
