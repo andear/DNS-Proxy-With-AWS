@@ -101,7 +101,7 @@ def getDomain(request):
     return domain
 
 if __name__ == '__main__':
-    thread.start_new_thread(http_server)
-    thread.start_new_thread(DNSProxy)
+    thread.start_new_thread(http_server,())
+    thread.start_new_thread(DNSProxy,())
 
     # sys.exit(0)
