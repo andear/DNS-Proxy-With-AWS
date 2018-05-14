@@ -2,7 +2,7 @@ import socket
 import sys
 import re
 import time
-import thread
+import threading
 from part4 import DNSProxy
 
 def http_server():
@@ -101,7 +101,8 @@ def getDomain(request):
     return domain
 
 if __name__ == '__main__':
-    thread.start_new_thread(http_server,())
-    thread.start_new_thread(DNSProxy,())
-
-    # sys.exit(0)
+    t1 = threading.Thread(target=http_server, name='http')
+    t2 = threading.Thread(target=DNSProxy, name='http')
+    t1.start()
+    t2.start()
+    sys.exit(0)
