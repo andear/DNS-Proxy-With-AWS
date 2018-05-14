@@ -2,10 +2,12 @@ import socket
 import sys
 import re
 import time
+import thread
+from part4 import DNSProxy
 
-def server1(port):
+def http_server():
     host = ''
-
+    port = 80
     # create an AF_INET, STREAM socket (TCP)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print 'Socket created'
@@ -99,7 +101,7 @@ def getDomain(request):
     return domain
 
 if __name__ == '__main__':
+    thread.start_new_thread(http_server)
+    thread.start_new_thread(DNSProxy)
 
-    server1(80);
-
-    sys.exit(0)
+    # sys.exit(0)

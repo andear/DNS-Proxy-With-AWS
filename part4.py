@@ -1,61 +1,95 @@
-import socket
 import sys
 from DNS import DNS
+from socket import *
+from select import select
 
-def UDPDNSProxy():
-
+def DNSProxy():
     # AD = "18.222.87.126" -> '\x12\xde\x57\x7e'
     # WH =  18.188.73.52   -> '\x12\xbc\x49\x34'
 
     # MyIP = [b'\x12',b'\xbc',b'\x49',b'\x34']
     MyIP = b'\x12\xde\x57\x7e'
-    udpsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    print 'Socket created'
+
+    host = ''
+    tcpsocket = socket(AF_INET, SOCK_STREAM)
+    print 'TCP socket created'
 
     try:
-        udpsocket.bind(('', 53))
-        print 'Bind succeed.'
-    except socket.error, msg:
-        print 'Bind failed.'
+        tcpsocket.bind((host, 53))
+        print 'TCP socket bind succeed.'
+    except Exception, msg:
+        print 'TCP socket bind failed.'
         sys.exit()
 
+    tcpsocket.listen(10)
+    print "TCP socket now listening"
+
+    udpsocket = socket(AF_INET, SOCK_DGRAM)
+    print 'UDP socket created'
+
+    try:
+        udpsocket.bind((host, 53))
+        print 'UDP socket bind succeed.'
+    except Exception, msg:
+        print 'UDP socket bind failed.'
+        sys.exit()
+
+    inputs = [tcpsocket, udpsocket]
+
     while True:
-        data, address = udpsocket.recvfrom(1024)
-        print data.encode("hex"), address
+        readable, writable, exceptional = select(inputs, [], [])
 
+        for sock in readable:
+            if sock == tcpsocket:
+                connection, address = sock.accept()
+                request = connection.recv(4096)
+                print(request)
+                print "TCP request recved."
 
-        response = getResponse(data)
-        respond_DNS = DNS(response)
+                upstreamServer = ('8.8.8.8', 53)
+                querysocket = socket(AF_INET, SOCK_STREAM)
+                querysocket.connect(upstreamServer)
+                querysocket.sendall(request)
+                responsebuffer = []
+                while True:
+                    data = querysocket.recv(1024)
+                    print "TCP request sent"
+                    if data:
+                        responsebuffer.append(data)
+                        print "TCP Responsed"
+                    else:
+                        break
+                tcpresponse = ''.join(responsebuffer)
+                connection.sendall(tcpresponse)
 
-        if respond_DNS.is_error():
-            response = respond_DNS.fake_an_answer(MyIP)
+                querysocket.close()
 
-        print "get response"
+                connection.close()
 
-        if response:
-            udpsocket.sendto(response, address)
-        else:
-            print "Not a DNS query."
+            elif sock == udpsocket:
+                data, address = sock.recvfrom(1024)
+                # print data.encode("hex"), address
+                upstreamServer = ('8.8.8.8', 53)
+                querysocket = socket(AF_INET, SOCK_DGRAM)
+                querysocket.sendto(data, upstreamServer)
 
+                udpresponse, add = querysocket.recvfrom(1024)
+                print "UDP Responsed"
 
-def getResponse(query):
-    '''
-    Get UDP response from upstream DNS server
-    :param query: UDP query going to be sent
-    :return:
-    '''
-    upstreamServer = ('8.8.8.8', 53)
-    querysocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    querysocket.sendto(query, upstreamServer)
-    try :
-        data, add = querysocket.recvfrom(1024)
-    except Exception, timeout:
-        print "Request time out"
-    return data
+                respond_DNS = DNS(udpresponse)
+
+                if respond_DNS.is_error():
+                    udpresponse = respond_DNS.fake_an_answer(MyIP)
+
+                sock.sendto(udpresponse, address)
+            else:
+                print "incorrect socket:", sock
 
 
 if __name__ == '__main__':
 
-    UDPDNSProxy()
+    DNSProxy()
 
     sys.exit(0)
+
+
