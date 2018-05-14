@@ -44,18 +44,25 @@ def DNSProxy():
                 querysocket.connect(upstreamServer)
                 querysocket.sendall(request)
                 empty = False
+                responsebuffer = []
                 while True:
-                    tcpresponse = querysocket.recv(1024)
+                    data = querysocket.recv(1024)
                     print "TCP request sent"
-                    if tcpresponse:
-                        connection.sendall(tcpresponse)
+                    if data:
+                        responsebuffer.append(data)
                         print "TCP Responsed"
                     else:
+                        break
+                        '''
                         if not empty:
                             empty = True
                             continue
                         else :
                             break
+                    '''
+
+                tcpresponse = ''.join(responsebuffer)
+                connection.sendall(tcpresponse)
 
                 querysocket.close()
 
@@ -65,10 +72,10 @@ def DNSProxy():
                 data, address = sock.recvfrom(1024)
                 # print data.encode("hex"), address
                 upstreamServer = ('8.8.8.8', 53)
-                # querysocket = socket(AF_INET, SOCK_DGRAM)
-                sock.sendto(data, upstreamServer)
+                querysocket = socket(AF_INET, SOCK_DGRAM)
+                querysocket.sendto(data, upstreamServer)
 
-                udpresponse, add = sock.recvfrom(1024)
+                udpresponse, add = querysocket.recvfrom(1024)
                 print "UDP Responsed"
 
                 sock.sendto(udpresponse, address)
